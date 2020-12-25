@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: koa-sample-db
+spec:
+  ports:
+  - port: 3306
+  selector:
+    app: koa-sample-db
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koa-sample-db
+spec:
+  selector:
+    matchLabels:
+      app: koa-sample-db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: koa-sample-db
+    spec:
+      containers:
+      - image: mysql:8.0.22
+        name: koa-sample-db
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          # value: mysql
+          valueFrom:
+            secretKeyRef:
+              name: dbsecret
+              key: root_password
+        - name: MYSQL_USER
+          # value: koa
+          valueFrom:
+            secretKeyRef:
+              name: dbsecret
+              key: user
+        - name: MYSQL_PASSWORD
+          # value: koa
+          valueFrom:
+            secretKeyRef:
+              name: dbsecret
+              key: password
+        resources:
+          requests:
+            memory: 1000Mi
+            cpu: 250m
+          limits:
+            memory: 1000Mi
+            cpu: 500m
+        ports:
+        - containerPort: 3306
+          name: koa-sample-db
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+        - name: sql-init-config
+          mountPath: /docker-entrypoint-initdb.d/
+      volumes:
+        - name: mysql-persistent-storage
+          persistentVolumeClaim:
+            claimName: koa-sample-db-pv-claim
+        - name: sql-init-config
+          configMap:
+            name: db-init-configmap
+            items:
+              - key: init.sql
+                path: init.sql
